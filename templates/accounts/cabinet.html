@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-lg-8">
+      <h1 class="h3 fw-semibold mb-3">Личный кабинет</h1>
+      <p class="text-muted-custom mb-0">
+        Здесь позже появятся «Мои объявления», избранное и настройки профиля (Спринты 4–7).
+      </p>
+      <p class="mt-3 mb-0">
+        Вы вошли как <span class="fw-medium">{{ user.username }}</span>.
+      </p>
+    </div>
+  </div>
+{% endblock %}

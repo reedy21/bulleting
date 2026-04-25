@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{{ advertisement.title }}{% endblock %}
+
+{% block content %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      {% if advertisement.photos.first %}
+        <img src="{{ advertisement.photos.first.image.url }}" alt="{{ advertisement.title }}" class="img-fluid w-100 border" style="max-height: 420px; object-fit: cover;">
+      {% else %}
+        <div class="border d-flex align-items-center justify-content-center text-muted-custom" style="height: 420px;">
+          Без фотографии
+        </div>
+      {% endif %}
+    </div>
+    <div class="col-lg-5">
+      <h1 class="h3 fw-semibold mb-3">{{ advertisement.title }}</h1>
+      <p class="fs-4 fw-semibold mb-3">{{ advertisement.price }} ₽</p>
+      <p class="text-muted-custom mb-2">Регион: {{ advertisement.region }}</p>
+      <p class="text-muted-custom mb-2">Категория: {{ advertisement.category.name }}</p>
+      <p class="text-muted-custom mb-2">Дата: {{ advertisement.created_at|date:"d.m.Y H:i" }}</p>
+      {% if request.user == advertisement.author %}
+        <p class="text-muted-custom mb-4">Просмотры: {{ advertisement.views_count }}</p>
+      {% else %}
+        <div class="mb-4"></div>
+      {% endif %}
+      {% if user.is_authenticated and user != advertisement.author %}
+        <form method="post" action="{% url 'ads:toggle_favorite' advertisement.pk %}" class="mb-3">
+          {% csrf_token %}
+          <button class="btn btn-outline-dark rounded-0" type="submit">
+            {% if is_favorite %}Убрать из избранного{% else %}Добавить в избранное{% endif %}
+          </button>
+        </form>
+      {% endif %}
+      {% if request.user == advertisement.author %}
+        <div class="d-flex gap-2">
+          <a href="{% url 'ads:edit_ad' advertisement.pk %}" class="btn btn-dark rounded-0">Редактировать</a>
+          <form method="post" action="{% url 'ads:delete_ad' advertisement.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-dark rounded-0">Удалить</button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="mt-4 border-top pt-4">
+    <h2 class="h5 fw-semibold mb-3">Описание</h2>
+    <p class="mb-0" style="white-space: pre-line;">{{ advertisement.description }}</p>
+  </section>
+{% endblock %}

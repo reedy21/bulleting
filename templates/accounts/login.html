@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Вход{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <h1 class="h3 fw-semibold mb-4">Вход</h1>
+      <p class="text-muted-custom mb-4">Введите имя пользователя и пароль.</p>
+      <form method="post" action="{% url 'accounts:login' %}">
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+          <div class="alert alert-dark border-0 rounded-0 small mb-3">
+            {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+          </div>
+        {% endif %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label fw-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+              <div class="invalid-feedback d-block small">{{ field.errors|striptags }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if next %}
+          <input type="hidden" name="next" value="{{ next }}">
+        {% endif %}
+        <button type="submit" class="btn btn-dark w-100 rounded-0 py-2">Войти</button>
+      </form>
+      <p class="mt-4 text-muted-custom small mb-0">
+        Нет аккаунта? <a class="link-dark" href="{% url 'accounts:register' %}">Регистрация</a>
+      </p>
+    </div>
+  </div>
+{% endblock %}

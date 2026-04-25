@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Редактировать объявление{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <h1 class="h3 fw-semibold mb-2">Редактирование объявления</h1>
+      <p class="text-muted-custom mb-4">{{ advertisement.title }}</p>
+      <form method="post" enctype="multipart/form-data" class="border p-4 bg-white">
+        {% csrf_token %}
+        {% for field in form %}
+          <div class="mb-3">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+          </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-dark rounded-0">Сохранить</button>
+      </form>
+    </div>
+  </div>
+{% endblock %}
