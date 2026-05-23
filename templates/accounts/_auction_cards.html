@@ -1,0 +1,46 @@
+{% if auctions %}
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4{% if section_class %} {{ section_class }}{% endif %}">
+    {% for ad in auctions %}
+      <div class="col">
+        <article class="card h-100 rounded-0 border">
+          {% if ad.photos.first %}
+            <img src="{{ ad.photos.first.image.url }}" class="card-img-top rounded-0" alt="{{ ad.title }}" style="height: 220px; object-fit: cover;">
+          {% else %}
+            <div class="border-bottom d-flex align-items-center justify-content-center text-muted-custom" style="height: 220px;">Без фото</div>
+          {% endif %}
+          <div class="card-body d-flex flex-column">
+            <h3 class="h5 mb-2">{{ ad.title }}</h3>
+            {% if participating %}
+              <p class="mb-1 fw-semibold">Текущая: {{ ad.display_price|floatformat:0 }} ₽</p>
+              {% if ad.my_bids %}
+                <p class="text-muted-custom small mb-2">Моя ставка: {{ ad.my_bids.0.amount|floatformat:0 }} ₽</p>
+              {% endif %}
+              {% if ad.auction_finished and ad.auction_winner_id == user.id %}
+                <p class="small text-success mb-2">Вы победили</p>
+              {% elif ad.auction_finished %}
+                <p class="text-muted-custom small mb-2">Аукцион завершён</p>
+              {% else %}
+                <p class="text-muted-custom small mb-2">до {{ ad.auction_end|date:"d.m.Y H:i" }}</p>
+              {% endif %}
+            {% else %}
+              {% if ad.auction_finished %}
+                <p class="mb-1 fw-semibold">Итог: {{ ad.display_price|floatformat:0 }} ₽</p>
+                {% if ad.auction_winner %}
+                  <p class="text-muted-custom small mb-2">Победитель: {{ ad.auction_winner.username }}</p>
+                {% else %}
+                  <p class="text-muted-custom small mb-2">Ставок не было</p>
+                {% endif %}
+              {% else %}
+                <p class="mb-1 fw-semibold">Текущая: {{ ad.display_price|floatformat:0 }} ₽</p>
+                <p class="text-muted-custom small mb-2">Шаг {{ ad.auction_step }} ₽ · до {{ ad.auction_end|date:"d.m.Y H:i" }}</p>
+              {% endif %}
+            {% endif %}
+            <a href="{% url 'ads:ad_detail' ad.pk %}" class="btn btn-outline-dark rounded-0 mt-auto">Открыть</a>
+          </div>
+        </article>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="text-muted-custom{% if empty_class %} {{ empty_class }}{% endif %}">{{ empty_text }}</p>
+{% endif %}

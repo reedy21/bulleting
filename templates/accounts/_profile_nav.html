@@ -1,0 +1,22 @@
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <a href="{% url 'accounts:profile' %}"
+     class="btn {% if profile_tab == 'profile' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0">
+    Мои объявления
+  </a>
+  <a href="{% url 'accounts:my_auctions' %}"
+     class="btn {% if profile_tab == 'auctions' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0">
+    Аукционы
+  </a>
+  <a href="{% url 'accounts:notifications' %}"
+     class="btn {% if profile_tab == 'notifications' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0">
+    Уведомления{% if unread_notifications_count %} ({{ unread_notifications_count }}){% endif %}
+  </a>
+  <a href="{% url 'accounts:favorites' %}"
+     class="btn {% if profile_tab == 'favorites' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0">
+    Избранное
+  </a>
+  <a href="{% url 'accounts:view_history' %}"
+     class="btn {% if profile_tab == 'history' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0">
+    История просмотров
+  </a>
+</div>

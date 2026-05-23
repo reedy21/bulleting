@@ -1,0 +1,49 @@
+<form method="get" class="border p-3 p-md-4 mb-4">
+  <div class="row g-3">
+    <div class="col-12 col-lg-4">
+      <label for="q" class="form-label mb-1">Поиск</label>
+      <input
+        type="text"
+        id="q"
+        name="q"
+        class="form-control rounded-0"
+        placeholder="Название или описание"
+        value="{{ filters.q }}"
+      >
+    </div>
+    <div class="col-12 col-md-6 col-lg-2">
+      <label for="category" class="form-label mb-1">Категория</label>
+      <select id="category" name="category" class="form-select rounded-0">
+        <option value="">Все категории</option>
+        {% for category in categories %}
+          <option value="{{ category.id }}" {% if filters.category == category.id|stringformat:"s" %}selected{% endif %}>
+            {{ category.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-6 col-lg-2">
+      <label for="region" class="form-label mb-1">Регион</label>
+      <select id="region" name="region" class="form-select rounded-0">
+        <option value="">Все регионы</option>
+        {% for r in regions %}
+          <option value="{{ r.id }}" {% if filters.region == r.id|stringformat:"s" %}selected{% endif %}>
+            {{ r.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-lg-2">
+      <label for="price_min" class="form-label mb-1">{{ price_min_label|default:"Цена от" }}</label>
+      <input type="number" step="1" min="0" id="price_min" name="price_min" class="form-control rounded-0" value="{{ filters.price_min }}">
+    </div>
+    <div class="col-6 col-lg-2">
+      <label for="price_max" class="form-label mb-1">{{ price_max_label|default:"Цена до" }}</label>
+      <input type="number" step="1" min="0" id="price_max" name="price_max" class="form-control rounded-0" value="{{ filters.price_max }}">
+    </div>
+  </div>
+  <div class="d-flex gap-2 mt-3">
+    <button type="submit" class="btn btn-dark rounded-0">Применить</button>
+    <a href="{{ reset_url }}" class="btn btn-outline-dark rounded-0">Сбросить</a>
+  </div>
+</form>

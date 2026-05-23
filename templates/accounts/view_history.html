@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Избранное{% endblock %}
+{% block title %}История просмотров{% endblock %}
 
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <h1 class="h3 fw-semibold mb-0">{{ user_display_name }}</h1>
     <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-dark rounded-0 btn-sm">На главную</a>
   </div>
 
-  {% include "accounts/_profile_nav.html" with profile_tab="favorites" %}
+  {% include "accounts/_profile_nav.html" with profile_tab="history" %}
 
-  {% if favorite_ads %}
+  {% if viewed_ads %}
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-      {% for ad in favorite_ads %}
+      {% for ad in viewed_ads %}
         <div class="col">
           <article class="card h-100 rounded-0 border">
             {% if ad.photos.all %}
@@ -25,7 +25,7 @@
             <div class="card-body d-flex flex-column">
               <h2 class="h5 mb-2">{{ ad.title }}</h2>
               <p class="mb-1 fw-semibold">{{ ad.price }} ₽</p>
-              <p class="text-muted-custom small mb-2">{{ ad.region }} · {{ ad.created_at|date:"d.m.Y" }}</p>
+              <p class="text-muted-custom small mb-3">{{ ad.region }}</p>
               <a href="{% url 'ads:ad_detail' ad.pk %}" class="btn btn-outline-dark rounded-0 mt-auto">Открыть</a>
             </div>
           </article>
@@ -33,6 +33,8 @@
       {% endfor %}
     </div>
   {% else %}
-    <div class="border p-5 text-center text-muted-custom">В избранном пока нет объявлений.</div>
+    <div class="border p-5 text-center text-muted-custom">
+      Вы ещё не просматривали объявления (кроме своих).
+    </div>
   {% endif %}
 {% endblock %}

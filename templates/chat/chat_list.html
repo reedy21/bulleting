@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block flash_messages %}{% endblock %}
+
+{% block title %}Мои сообщения{% endblock %}
+
+{% block extra_css %}
+<style>
+  .chat-list-item {
+    border: 1px solid var(--line);
+    transition: background 0.15s ease;
+  }
+  .chat-list-item:hover { background: var(--soft); }
+  .chat-unread-badge {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    font-size: 0.7rem;
+    background: var(--ink);
+    color: var(--paper);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="h3 fw-semibold mb-0">Сообщения</h1>
+    <a href="{% url 'accounts:profile' %}" class="btn btn-outline-dark rounded-0 btn-sm">← Профиль</a>
+  </div>
+
+  {% if chat_items %}
+    <div class="list-group list-group-flush">
+      {% for item in chat_items %}
+        <a href="{% url 'chat:chat_room' item.chat.pk %}"
+           class="list-group-item chat-list-item rounded-0 px-3 py-3 text-decoration-none text-dark d-flex gap-3 align-items-start">
+          <div class="flex-shrink-0" style="width: 56px; height: 56px;">
+            {% if item.chat.advertisement.photos.first %}
+              <img src="{{ item.chat.advertisement.photos.first.image.url }}" alt=""
+                   class="w-100 h-100 border" style="object-fit: cover;">
+            {% else %}
+              <div class="border w-100 h-100 d-flex align-items-center justify-content-center small text-muted-custom">—</div>
+            {% endif %}
+          </div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <span class="fw-semibold text-truncate">{{ item.other_user.username }}</span>
+              {% if item.unread_count %}
+                <span class="badge chat-unread-badge rounded-pill">{{ item.unread_count }}</span>
+              {% endif %}
+            </div>
+            <p class="small text-muted-custom mb-1 text-truncate">{{ item.chat.advertisement.title }}</p>
+            {% if item.last_message %}
+              <p class="small mb-0 text-truncate {% if item.unread_count %}fw-semibold{% endif %}">
+                {% if item.last_message.sender_id == request.user.id %}Вы: {% endif %}
+                {{ item.last_message.text|truncatechars:60 }}
+              </p>
+            {% else %}
+              <p class="small mb-0 text-muted-custom">Нет сообщений — напишите первым</p>
+            {% endif %}
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="border p-5 text-center text-muted-custom">
+      У вас пока нет диалогов. Откройте объявление и нажмите «Написать автору».
+    </div>
+  {% endif %}
+{% endblock %}

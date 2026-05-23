@@ -5,8 +5,13 @@
 {% block content %}
   <div class="row justify-content-center">
     <div class="col-lg-8">
-      <h1 class="h3 fw-semibold mb-2">Редактирование объявления</h1>
-      <p class="text-muted-custom mb-4">{{ advertisement.title }}</p>
+      <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+        <div>
+          <h1 class="h3 fw-semibold mb-2">Редактирование объявления</h1>
+          <p class="text-muted-custom mb-0">{{ advertisement.title }}</p>
+        </div>
+        <a href="{% url 'ads:ad_detail' advertisement.pk %}" class="btn btn-outline-dark rounded-0">← Назад</a>
+      </div>
       <form method="post" enctype="multipart/form-data" class="border p-4 bg-white">
         {% csrf_token %}
         {% for field in form %}
@@ -17,8 +22,37 @@
             {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
           </div>
         {% endfor %}
-        <button type="submit" class="btn btn-dark rounded-0">Сохранить</button>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-dark rounded-0">Сохранить</button>
+          <a href="{% url 'ads:ad_detail' advertisement.pk %}" class="btn btn-outline-dark rounded-0">Отмена</a>
+        </div>
       </form>
     </div>
   </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const typeSelect = document.getElementById('id_ad_type');
+    const AUCTION = 'auction';
+
+    function toggle() {
+      const isAuction = typeSelect && typeSelect.value === AUCTION;
+      ['id_auction_step', 'id_auction_end'].forEach((id) => {
+        const el = document.getElementById(id);
+        const wrap = el && el.closest('.mb-3');
+        if (wrap) wrap.style.display = isAuction ? '' : 'none';
+      });
+      const price = document.getElementById('id_price');
+      const label = price && price.closest('.mb-3')?.querySelector('.form-label');
+      if (label) label.textContent = isAuction ? 'Стартовая цена, ₽' : 'Цена';
+    }
+
+    if (typeSelect) {
+      typeSelect.addEventListener('change', toggle);
+      toggle();
+    }
+  })();
+</script>
 {% endblock %}

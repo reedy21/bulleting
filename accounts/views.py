@@ -6,7 +6,8 @@ from django.db.models import Prefetch
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
 
-from ads.models import Advertisement, Photo
+from ads.auction_services import archive_old_drafts, finalize_expired_auctions
+from ads.models import AdView, Advertisement, Bid, Photo, UserNotification
 
 from .forms import CustomUserCreationForm, StyledAuthenticationForm
 
@@ -39,7 +40,6 @@ def user_logout(request):
     if request.method == 'POST':
         if request.user.is_authenticated:
             logout(request)
-            messages.info(request, 'Вы вышли из аккаунта.')
         return render(request, 'accounts/logout.html', {'logged_out': True})
 
     if not request.user.is_authenticated:
@@ -58,10 +58,77 @@ def cabinet(request):
 def profile(request):
     my_ads = (
         Advertisement.objects.filter(author=request.user)
-        .select_related('category')
+        .exclude(ad_type=Advertisement.AdType.AUCTION)
+        .select_related('category', 'region')
         .prefetch_related(Prefetch('photos', queryset=Photo.objects.order_by('order', 'id')))
     )
     return render(request, 'accounts/profile.html', {'my_ads': my_ads})
+
+
+def _auction_list_context(active_qs, finished_qs, *, auctions_tab: str, participating: bool):
+    return {
+        'profile_tab': 'auctions',
+        'auctions_tab': auctions_tab,
+        'participating_mode': participating,
+        'active_auctions': active_qs,
+        'finished_auctions': finished_qs,
+        'active_empty': 'Нет активных аукционов.' if auctions_tab == 'mine' else 'Вы не участвуете в активных аукционах.',
+        'finished_empty': 'Нет завершённых аукционов.' if auctions_tab == 'mine' else 'Нет завершённых аукционов с вашим участием.',
+    }
+
+
+@login_required
+def my_auctions(request):
+    """Аукционы, которые создал пользователь."""
+    archive_old_drafts()
+    finalize_expired_auctions()
+    base_qs = (
+        Advertisement.objects.filter(author=request.user, ad_type=Advertisement.AdType.AUCTION)
+        .select_related('category', 'region', 'auction_winner')
+        .prefetch_related(Prefetch('photos', queryset=Photo.objects.order_by('order', 'id')))
+    )
+    return render(
+        request,
+        'accounts/profile_auctions.html',
+        _auction_list_context(
+            base_qs.filter(auction_finished=False).order_by('auction_end'),
+            base_qs.filter(auction_finished=True).order_by('-auction_end'),
+            auctions_tab='mine',
+            participating=False,
+        ),
+    )
+
+
+@login_required
+def participating_auctions(request):
+    """Аукционы, в которых пользователь делал ставки (не свои)."""
+    archive_old_drafts()
+    finalize_expired_auctions()
+    my_bids = Prefetch(
+        'bids',
+        queryset=Bid.objects.filter(bidder=request.user).order_by('-created_at'),
+        to_attr='my_bids',
+    )
+    base_qs = (
+        Advertisement.objects.filter(
+            bids__bidder=request.user,
+            ad_type=Advertisement.AdType.AUCTION,
+        )
+        .exclude(author=request.user)
+        .distinct()
+        .select_related('category', 'region', 'auction_winner')
+        .prefetch_related(Prefetch('photos', queryset=Photo.objects.order_by('order', 'id')), my_bids)
+    )
+    return render(
+        request,
+        'accounts/profile_auctions.html',
+        _auction_list_context(
+            base_qs.filter(auction_finished=False).order_by('auction_end'),
+            base_qs.filter(auction_finished=True).order_by('-auction_end'),
+            auctions_tab='participating',
+            participating=True,
+        ),
+    )
 
 
 @login_required
@@ -72,7 +139,38 @@ def favorites(request):
             is_active=True,
             status=Advertisement.Status.PUBLISHED,
         )
-        .select_related('category', 'author')
+        .select_related('category', 'author', 'region')
         .prefetch_related(Prefetch('photos', queryset=Photo.objects.order_by('order', 'id')))
     )
     return render(request, 'accounts/favorites.html', {'favorite_ads': favorite_ads})
+
+
+@login_required
+def view_history(request):
+    """Недавно просмотренные объявления (уникальные, по последнему просмотру)."""
+    seen = set()
+    viewed_ids = []
+    for ad_id in AdView.objects.filter(user=request.user).order_by('-viewed_at').values_list(
+        'advertisement_id', flat=True
+    ):
+        if ad_id not in seen:
+            seen.add(ad_id)
+            viewed_ids.append(ad_id)
+
+    ads_map = {
+        ad.pk: ad
+        for ad in Advertisement.objects.filter(pk__in=viewed_ids, is_active=True)
+        .select_related('category', 'author', 'region')
+        .prefetch_related(Prefetch('photos', queryset=Photo.objects.order_by('order', 'id')))
+    }
+    viewed_ads = [ads_map[pk] for pk in viewed_ids if pk in ads_map]
+
+    return render(request, 'accounts/view_history.html', {'viewed_ads': viewed_ads})
+
+
+@login_required
+def notifications(request):
+    """In-app уведомления (победа в аукционе и др.)."""
+    items = UserNotification.objects.filter(user=request.user).select_related('advertisement')[:50]
+    UserNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return render(request, 'accounts/notifications.html', {'notifications': items})

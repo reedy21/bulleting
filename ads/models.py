@@ -28,12 +28,29 @@ class Category(models.Model):
     # Краткое описание назначения категории (необязательно).
     description = models.TextField('описание', blank=True)
 
+    # Порядок в фильтрах и формах (меньше — выше).
+    sort_order = models.PositiveSmallIntegerField('порядок', default=0)
+
     # Момент создания записи в БД (для сортировки и отладки).
     created_at = models.DateTimeField('создана', auto_now_add=True)
 
     class Meta:
         verbose_name = 'категория'
         verbose_name_plural = 'категории'
+        ordering = ['sort_order', 'name']
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Region(models.Model):
+    """Субъект РФ — справочник для выбора региона в объявлении и в фильтрах."""
+
+    name = models.CharField('название', max_length=120, unique=True)
+
+    class Meta:
+        verbose_name = 'регион'
+        verbose_name_plural = 'регионы'
         ordering = ['name']
 
     def __str__(self) -> str:
@@ -46,12 +63,12 @@ class Advertisement(models.Model):
     """
 
     class AdType(models.TextChoices):
-        # Продажа товара.
         SALE = 'sale', 'Продажа'
-        # Услуга (работа, ремонт, обучение и т.д.).
         SERVICE = 'service', 'Услуга'
-        # Обмен (бартер).
         EXCHANGE = 'exchange', 'Обмен'
+        AUCTION = 'auction', 'Аукцион'
+
+    AUCTION_STEP_CHOICES = (1, 10, 100, 1000)
 
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Черновик'
@@ -67,8 +84,13 @@ class Advertisement(models.Model):
     # Цена в выбранной валюте; для «договорной» цены можно договориться о null в логике форм позже.
     price = models.DecimalField('цена', max_digits=12, decimal_places=2)
 
-    # Регион / город размещения — строкой, чтобы не усложнять справочниками на первом этапе.
-    region = models.CharField('регион', max_length=120)
+    # Регион размещения — субъект РФ из справочника Region.
+    region = models.ForeignKey(
+        Region,
+        verbose_name='регион',
+        on_delete=models.PROTECT,
+        related_name='advertisements',
+    )
 
     # Тип объявления: продажа, услуга или обмен.
     ad_type = models.CharField(
@@ -112,6 +134,33 @@ class Advertisement(models.Model):
     # Счетчик просмотров (инкрементируется на детальной странице).
     views_count = models.PositiveIntegerField('просмотры', default=0)
 
+    # --- Аукцион: ad_type == AUCTION; стартовая цена = price (дублируется в start_price) ---
+    start_price = models.DecimalField(
+        'стартовая цена',
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    current_price = models.DecimalField(
+        'текущая ставка',
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    auction_end = models.DateTimeField('окончание аукциона', null=True, blank=True)
+    auction_step = models.PositiveIntegerField('шаг ставки, ₽', default=1)
+    auction_finished = models.BooleanField('аукцион завершён', default=False)
+    auction_winner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='победитель аукциона',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='won_auctions',
+    )
+
     class Meta:
         verbose_name = 'объявление'
         verbose_name_plural = 'объявления'
@@ -119,6 +168,91 @@ class Advertisement(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    @property
+    def is_auction(self) -> bool:
+        return self.ad_type == self.AdType.AUCTION
+
+    @property
+    def display_price(self):
+        """Цена для отображения: текущая ставка или обычная цена."""
+        if self.is_auction and self.current_price is not None:
+            return self.current_price
+        return self.price
+
+    @property
+    def auction_base_price(self):
+        """Стартовая цена аукциона (равна полю price при создании)."""
+        if self.start_price is not None:
+            return self.start_price
+        return self.price
+
+
+class UserNotification(models.Model):
+    """In-app уведомление пользователя (победа в аукционе и др.)."""
+
+    class NotificationType(models.TextChoices):
+        AUCTION_WON = 'auction_won', 'Победа в аукционе'
+        AUCTION_ENDED = 'auction_ended', 'Аукцион завершён'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='получатель',
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    advertisement = models.ForeignKey(
+        'Advertisement',
+        verbose_name='объявление',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications',
+    )
+    notification_type = models.CharField(
+        'тип',
+        max_length=32,
+        choices=NotificationType.choices,
+    )
+    title = models.CharField('заголовок', max_length=200)
+    message = models.TextField('текст')
+    is_read = models.BooleanField('прочитано', default=False)
+    created_at = models.DateTimeField('создано', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'уведомление'
+        verbose_name_plural = 'уведомления'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f'{self.user}: {self.title}'
+
+
+class Bid(models.Model):
+    """Ставка на аукционное объявление."""
+
+    advertisement = models.ForeignKey(
+        Advertisement,
+        verbose_name='объявление',
+        on_delete=models.CASCADE,
+        related_name='bids',
+    )
+    bidder = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='участник',
+        on_delete=models.CASCADE,
+        related_name='bids',
+    )
+    amount = models.DecimalField('сумма ставки', max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField('создана', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'ставка'
+        verbose_name_plural = 'ставки'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
+        return f'{self.bidder}: {self.amount} ₽'
 
 
 class Photo(models.Model):
@@ -184,3 +318,42 @@ class Favorite(models.Model):
 
     def __str__(self) -> str:
         return f'{self.user} -> {self.advertisement}'
+
+
+class AdView(models.Model):
+    """
+    История просмотров объявления.
+
+    Для авторизованных — по user; для гостей — по session_key.
+    Счётчик views_count на Advertisement обновляется отдельно на детальной странице.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='пользователь',
+        on_delete=models.CASCADE,
+        related_name='ad_views',
+        null=True,
+        blank=True,
+    )
+    advertisement = models.ForeignKey(
+        Advertisement,
+        verbose_name='объявление',
+        on_delete=models.CASCADE,
+        related_name='view_history',
+    )
+    session_key = models.CharField('ключ сессии', max_length=40, blank=True)
+    viewed_at = models.DateTimeField('просмотрено', auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'просмотр объявления'
+        verbose_name_plural = 'история просмотров'
+        ordering = ['-viewed_at']
+        indexes = [
+            models.Index(fields=['user', '-viewed_at']),
+            models.Index(fields=['session_key', '-viewed_at']),
+        ]
+
+    def __str__(self) -> str:
+        who = self.user.username if self.user_id else self.session_key[:8]
+        return f'{who} → {self.advertisement.title}'

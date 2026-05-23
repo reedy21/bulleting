@@ -2,20 +2,54 @@
 
 {% block title %}{{ advertisement.title }}{% endblock %}
 
+{% block extra_css %}
+{% if advertisement.is_auction %}
+<style>
+  .auction-panel { border: 1px solid var(--line); background: var(--soft); }
+  .bid-row { border-bottom: 1px solid var(--line); padding: 0.5rem 0; }
+  .bid-row:last-child { border-bottom: none; }
+  #auction-current-price { font-size: 1.75rem; font-weight: 600; }
+</style>
+{% endif %}
+{% endblock %}
+
 {% block content %}
   <div class="row g-4">
     <div class="col-lg-7">
       {% if advertisement.photos.first %}
         <img src="{{ advertisement.photos.first.image.url }}" alt="{{ advertisement.title }}" class="img-fluid w-100 border" style="max-height: 420px; object-fit: cover;">
       {% else %}
-        <div class="border d-flex align-items-center justify-content-center text-muted-custom" style="height: 420px;">
-          Без фотографии
-        </div>
+        <div class="border d-flex align-items-center justify-content-center text-muted-custom" style="height: 420px;">Без фотографии</div>
       {% endif %}
     </div>
     <div class="col-lg-5">
       <h1 class="h3 fw-semibold mb-3">{{ advertisement.title }}</h1>
-      <p class="fs-4 fw-semibold mb-3">{{ advertisement.price }} ₽</p>
+      {% if advertisement.is_auction %}
+        <p class="text-uppercase small text-muted-custom mb-1">Аукцион</p>
+        <p id="auction-current-price" class="mb-2">{{ advertisement.display_price|floatformat:0 }} ₽</p>
+        <p class="text-muted-custom small mb-2">Шаг ставки: {{ advertisement.auction_step }} ₽</p>
+        <p class="text-muted-custom small mb-2">Окончание: {{ advertisement.auction_end|date:"d.m.Y H:i" }}</p>
+        {% if advertisement.auction_finished and user.is_authenticated and user == advertisement.auction_winner %}
+          <div class="alert alert-secondary border-0 rounded-0 small mb-3" role="status">
+            Вы выиграли этот аукцион. Свяжитесь с продавцом через сообщения или контакты в объявлении.
+          </div>
+        {% endif %}
+        <p id="auction-status-text" class="small mb-3">
+          {% if advertisement.auction_finished %}
+            {% if advertisement.auction_winner %}
+              Завершён. Победитель: <strong id="auction-winner-name">{{ advertisement.auction_winner.username }}</strong>
+            {% else %}
+              Завершён. Ставок не было.
+            {% endif %}
+          {% elif auction_active %}
+            Торги идут
+          {% else %}
+            Ожидание
+          {% endif %}
+        </p>
+      {% else %}
+        <p class="fs-4 fw-semibold mb-3">{{ advertisement.display_price }} ₽</p>
+      {% endif %}
       <p class="text-muted-custom mb-2">Регион: {{ advertisement.region }}</p>
       <p class="text-muted-custom mb-2">Категория: {{ advertisement.category.name }}</p>
       <p class="text-muted-custom mb-2">Дата: {{ advertisement.created_at|date:"d.m.Y H:i" }}</p>
@@ -23,6 +57,9 @@
         <p class="text-muted-custom mb-4">Просмотры: {{ advertisement.views_count }}</p>
       {% else %}
         <div class="mb-4"></div>
+      {% endif %}
+      {% if user.is_authenticated and user != advertisement.author and not advertisement.is_auction %}
+        <a href="{% url 'chat:start_chat' advertisement.pk %}" class="btn btn-dark rounded-0 mb-3 d-block text-center">Написать автору</a>
       {% endif %}
       {% if user.is_authenticated and user != advertisement.author %}
         <form method="post" action="{% url 'ads:toggle_favorite' advertisement.pk %}" class="mb-3">
@@ -44,8 +81,57 @@
     </div>
   </div>
 
+  {% if advertisement.is_auction %}
+  <section class="mt-4 auction-panel p-4" id="auction-panel" data-ad-id="{{ advertisement.pk }}">
+    {% if auction_active and user.is_authenticated and user != advertisement.author %}
+      <h2 class="h5 fw-semibold mb-3">Сделать ставку</h2>
+      <form id="auction-bid-form" method="post" action="{% url 'ads:place_bid' advertisement.pk %}" class="row g-2 align-items-end mb-0">
+        {% csrf_token %}
+        <div class="col-sm-6">
+          <label class="form-label small" for="bid-amount">Ваша ставка (мин. <span id="min-bid-label">{{ min_bid|floatformat:0 }}</span> ₽)</label>
+          <input type="number" step="{{ auction_step_value }}" min="{{ min_bid|floatformat:0 }}" class="form-control rounded-0" id="bid-amount" name="amount" required>
+        </div>
+        <div class="col-sm-auto">
+          <button type="submit" class="btn btn-dark rounded-0">Сделать ставку</button>
+        </div>
+      </form>
+    {% elif not user.is_authenticated and auction_active %}
+      <p class="text-muted-custom mb-0"><a href="{% url 'accounts:login' %}">Войдите</a>, чтобы сделать ставку.</p>
+    {% elif show_bids_history %}
+      <h2 class="h5 fw-semibold mb-3">История ставок</h2>
+      <ul id="bids-list" class="list-unstyled mb-0">
+        {% for bid in bids %}
+          <li class="bid-row d-flex justify-content-between small">
+            <span><strong>{{ bid.bidder.username }}</strong></span>
+            <span>{{ bid.amount|floatformat:0 }} ₽ · {{ bid.created_at|date:"d.m.Y H:i" }}</span>
+          </li>
+        {% empty %}
+          <li class="text-muted-custom small" id="bids-empty">Ставок пока нет.</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <section class="mt-4 border-top pt-4">
     <h2 class="h5 fw-semibold mb-3">Описание</h2>
     <p class="mb-0" style="white-space: pre-line;">{{ advertisement.description }}</p>
   </section>
+{% endblock %}
+
+{% block extra_js %}
+{% if advertisement.is_auction %}
+{% load static %}
+<script>
+  window.AUCTION_CONFIG = {
+    adId: {{ advertisement.pk }},
+    wsScheme: window.location.protocol === 'https:' ? 'wss' : 'ws',
+    wsHost: window.location.host,
+    showBidHistory: {{ show_bids_history|yesno:"true,false" }},
+    auctionBase: {{ auction_base }},
+    auctionStep: {{ auction_step_value }},
+  };
+</script>
+<script src="{% static 'ads/auction.js' %}"></script>
+{% endif %}
 {% endblock %}

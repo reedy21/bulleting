@@ -26,21 +26,24 @@ SECRET_KEY = 'django-insecure-5n@u=w7-41bee*4=d9cw$)s0-*489*18vbtw80y)^h=6!vkzy9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']  # Временно для теста
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'accounts',
     'ads',
     'core',
+    'chat',
 ]
 
 MIDDLEWARE = [
@@ -65,12 +68,22 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'chat.context_processors.chat_notifications',
+                'accounts.context_processors.user_profile_context',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'bulletin.wsgi.application'
+ASGI_APPLICATION = 'bulletin.asgi.application'
+
+# Django Channels: in-memory слой для разработки (без Redis)
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    }
+}
 
 
 # Database
@@ -124,6 +137,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

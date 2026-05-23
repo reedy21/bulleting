@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Аукционы{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="h3 fw-semibold mb-0">Аукционы</h1>
+    {% if user.is_authenticated %}
+      <a href="{% url 'ads:create_ad' %}" class="btn btn-dark rounded-0">Создать аукцион</a>
+    {% endif %}
+  </div>
+
+  <div class="d-flex gap-2 mb-4">
+    <a href="{% url 'ads:ad_list' %}" class="btn btn-outline-dark rounded-0">Обычные объявления</a>
+    <a href="{% url 'ads:auction_list' %}" class="btn btn-dark rounded-0">Аукционы</a>
+  </div>
+
+  {% include "ads/_list_filters_form.html" %}
+
+  {% if advertisements %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+      {% for ad in advertisements %}
+        <div class="col">
+          <article class="card h-100 rounded-0 border position-relative">
+            <span class="position-absolute top-0 end-0 m-2 badge bg-dark rounded-0">Идёт торг</span>
+            {% if ad.photos.first %}
+              <img src="{{ ad.photos.first.image.url }}" class="card-img-top rounded-0" alt="{{ ad.title }}" style="height: 220px; object-fit: cover;">
+            {% else %}
+              <div class="border-bottom d-flex align-items-center justify-content-center text-muted-custom" style="height: 220px;">Без фото</div>
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+              <h2 class="h5 mb-2">{{ ad.title }}</h2>
+              <p class="mb-1 fw-semibold">Текущая ставка: {{ ad.display_price|floatformat:0 }} ₽</p>
+              <p class="text-muted-custom small mb-1">Старт: {{ ad.price|floatformat:0 }} ₽ · шаг {{ ad.auction_step }} ₽</p>
+              <p class="text-muted-custom small mb-2">{{ ad.region }} · до {{ ad.auction_end|date:"d.m.Y H:i" }}</p>
+              <a href="{% url 'ads:ad_detail' ad.pk %}" class="btn btn-outline-dark rounded-0 mt-auto">Участвовать</a>
+            </div>
+          </article>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="border p-5 text-center text-muted-custom">
+      {% if filters.q or filters.category or filters.region or filters.price_min or filters.price_max %}
+        По вашему запросу аукционов не найдено.
+      {% else %}
+        Аукционов пока нет.
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,10 @@
+<div class="d-flex flex-wrap gap-2 mb-4">
+  <a href="{% url 'accounts:my_auctions' %}"
+     class="btn {% if auctions_tab == 'mine' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0 btn-sm">
+    Мои аукционы
+  </a>
+  <a href="{% url 'accounts:participating_auctions' %}"
+     class="btn {% if auctions_tab == 'participating' %}btn-dark{% else %}btn-outline-dark{% endif %} rounded-0 btn-sm">
+    Участвую
+  </a>
+</div>
